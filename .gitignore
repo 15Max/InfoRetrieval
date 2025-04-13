@@ -4,6 +4,9 @@
 *.tsv:Zone.Identifier
 *.pt
 
+# Ignore excel file
+*.xlsx
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
