@@ -1,1 +1,1 @@
-# Data Visualization Final Project
+# Information Retrieval Final Project
