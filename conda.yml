@@ -1,9 +1,5 @@
-name: DataVis
-channels:
-  - pytorch
+name: IR
 dependencies:
-  - python > 3.10
-  - openpyxl
   - numpy 
   - pandas
   - plotly

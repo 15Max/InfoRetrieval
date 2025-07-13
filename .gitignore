@@ -1,3 +1,8 @@
+# Ignore data folder
+
+data/
+
+
 # Ignore .csv .pkl and Zone.Identifier files
 *.pkl 
 *.csv:Zone.Identifier

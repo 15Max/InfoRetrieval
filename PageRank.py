@@ -1,3 +1,44 @@
+# This file contains the implementation of the PageRank algorithm. The PageRank algorithm is used to rank web pages based on their importance,
+# which is determined by a function that takes into account the links between pages. Essentially, a page rank is obtained by a propagation of
+# the ranks of the pages that are linked to it. The following in a brief theory reminder (a "teacher" comment)
+#
+# Let M be an adjacency matrix of size n x n, where n is the number of web pages. F_u is the set of forward links from page u, B_u the set of backward link
+# to page u, c a normalization factor and E(u) a positive vector of size n that is used to allow escaping dead ends. The PageRank of a page u is given by the formula:
+# 
+# R(u) = c * [sum_{v in B_u} (R(v) / |F_v|) + E(u)]
+#
+# To compute this, we will use the power iteration method, which is an iterative algorithm that computes the dominant eigenvector of a matrix. This is
+# possible because the PageRank matrix is a stochastic matrix and therefore by the Perron-Frobenius theorem, it has a unique dominant eigenvector which
+# corresponds to the PageRank of the pages. Another way to see the vector R is the stationary distribution of a Markov chain where the states
+# are the web pages and the transition probabilities are given by the links between the pages. 
+#
+# Power Iteration algorithm
+# If we have A, a diagonalizable matrix, say n x n, then we can decompose it using eigendecomposition as A = VΛV^{-1} with V is a matrix where the columns are
+# the eigenvectors of A and Λ is a diagonal matrix containing the sorted (in abs) eigenvalues of A. Now observe that this holds:
+#
+# A = VΛV^{-1}
+# AA = VΛV^{-1}VΛV^{-1} = VΛ^{2}V^{-1}
+# AAA = VΛV^{-1}VΛV^{-1}VΛV^{-1} = VΛ^{3}V^{-1}
+# ...
+# A^k = {VΛV^{-1}}^k = VΛ^{k}V^{-1}
+#
+# Now, given b a random vector of size n, by definition, it can always be rewritten as a linear combination of the eigenvectors of A: b = Vg
+# where g is another vector of size n. Consider now:
+#
+# A^k b = A^k Vg = VΛ^{k}V^{-1} Vg = VΛ^{k}g = \sum_{i = 1}^n v_i λ_i^k g_i 
+#
+# Taking out the first eigenvalue (the biggest in abs) we get:
+#
+# λ_1 \sum_{i = 1}^n v_i (λ_i / λ_1)^k g_i
+#
+# Now, as k → ∞, note that (λ_i / λ_1)^k goes to 0 so we proved that A^k b converges to v_1 λ_1^k g_1. Normalize it using the ∥ ∥2 and we've just obtained
+# the unique dominant eigenvector for A^k aka the stationary distribution: the probability of being in a page after a "long time" has passed. Of course, we don't
+# set k to ∞, we stop when we reach a certain tolerance.
+#
+# Do note that for us A = c*M + (1-c)Ex1 (E uniform vector,1 a vector full of ones and c h)
+
+
+
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -25,6 +66,9 @@ class WikiPageRank:
         self.tolerance = tolerance
         
         # Data structures
+        # Maybe we can join dictionaries (adj list, page_names and node_categories) into one?
+        # Also, do we need to store the node category? (Topic PR)
+
         self.graph = defaultdict(list)  # adjacency list
         self.nodes = set()
         self.page_names = {}  # node_id -> page_name
@@ -127,7 +171,7 @@ class WikiPageRank:
         More memory efficient for large graphs.
         """
         print("Computing PageRank using power iteration...")
-        start_time = time.time()
+        start_time = time.perf_counter()
         
         # Initialize PageRank scores
         n_nodes = len(self.nodes)
@@ -180,7 +224,7 @@ class WikiPageRank:
         
         self.pagerank_scores = current_scores
         
-        elapsed_time = time.time() - start_time
+        elapsed_time = time.perf_counter() - start_time
         print(f"PageRank computation completed in {elapsed_time:.2f} seconds")
         print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
         
@@ -390,9 +434,9 @@ def main():
     
     # Load data (adjust file paths as needed)
     wiki_pr.load_data(
-        graph_file="wiki-topcats.txt",
-        page_names_file="wiki-topcats-page-names.txt",
-        categories_file="wiki-topcats-categories.txt"  # Optional
+        graph_file="data/wiki-topcats.txt",
+        page_names_file="data/wiki-topcats-page-names.txt",
+        categories_file="data/wiki-topcats-categories.txt"  # Optional
     )
     
     # Compute PageRank
