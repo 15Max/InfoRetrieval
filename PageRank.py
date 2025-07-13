@@ -1,42 +1,6 @@
-# This file contains the implementation of the PageRank algorithm. The PageRank algorithm is used to rank web pages based on their importance,
-# which is determined by a function that takes into account the links between pages. Essentially, a page rank is obtained by a propagation of
-# the ranks of the pages that are linked to it. The following in a brief theory reminder (a "teacher" comment)
-#
-# Let M be an adjacency matrix of size n x n, where n is the number of web pages. F_u is the set of forward links from page u, B_u the set of backward link
-# to page u, c a normalization factor and E(u) a positive vector of size n that is used to allow escaping dead ends. The PageRank of a page u is given by the formula:
-# 
-# R(u) = c * [sum_{v in B_u} (R(v) / |F_v|) + E(u)]
-#
-# To compute this, we will use the power iteration method, which is an iterative algorithm that computes the dominant eigenvector of a matrix. This is
-# possible because the PageRank matrix is a stochastic matrix and therefore by the Perron-Frobenius theorem, it has a unique dominant eigenvector which
-# corresponds to the PageRank of the pages. Another way to see the vector R is the stationary distribution of a Markov chain where the states
-# are the web pages and the transition probabilities are given by the links between the pages. 
-#
-# Power Iteration algorithm
-# If we have A, a diagonalizable matrix, say n x n, then we can decompose it using eigendecomposition as A = VΛV^{-1} with V is a matrix where the columns are
-# the eigenvectors of A and Λ is a diagonal matrix containing the sorted (in abs) eigenvalues of A. Now observe that this holds:
-#
-# A = VΛV^{-1}
-# AA = VΛV^{-1}VΛV^{-1} = VΛ^{2}V^{-1}
-# AAA = VΛV^{-1}VΛV^{-1}VΛV^{-1} = VΛ^{3}V^{-1}
-# ...
-# A^k = {VΛV^{-1}}^k = VΛ^{k}V^{-1}
-#
-# Now, given b a random vector of size n, by definition, it can always be rewritten as a linear combination of the eigenvectors of A: b = Vg
-# where g is another vector of size n. Consider now:
-#
-# A^k b = A^k Vg = VΛ^{k}V^{-1} Vg = VΛ^{k}g = \sum_{i = 1}^n v_i λ_i^k g_i 
-#
-# Taking out the first eigenvalue (the biggest in abs) we get:
-#
-# λ_1 \sum_{i = 1}^n v_i (λ_i / λ_1)^k g_i
-#
-# Now, as k → ∞, note that (λ_i / λ_1)^k goes to 0 so we proved that A^k b converges to v_1 λ_1^k g_1. Normalize it using the ∥ ∥2 and we've just obtained
-# the unique dominant eigenvector for A^k aka the stationary distribution: the probability of being in a page after a "long time" has passed. Of course, we don't
-# set k to ∞, we stop when we reach a certain tolerance.
-#
-# Do note that for us A = c*M + (1-c)Ex1 (E uniform vector,1 a vector full of ones and c h)
-
+# This file contains the implementation of the PageRank algorithm on the dataset https://snap.stanford.edu/data/wiki-topcats.html
+# We create a class WikiPageRank that encapsulates the PageRank algorithm and provides methods to load the dataset, compute PageRank scores, 
+# analyze results, and visualize the distribution of scores. Then we supply other utility functions to load, combine, and analyze PageRank scores.
 
 
 import numpy as np
@@ -45,6 +9,7 @@ from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 import matplotlib.pyplot as plt
 import time
+import os
 
 class WikiPageRank:
     """
@@ -67,14 +32,20 @@ class WikiPageRank:
         
         # Data structures
         # Maybe we can join dictionaries (adj list, page_names and node_categories) into one?
-        # Also, do we need to store the node category? (Topic PR)
+        # Also, do we need to store the node category? (Topic PR). Maybe we can also
+        # precompute outdegrees and dandling nodes.
 
         self.graph = defaultdict(list)  # adjacency list
         self.nodes = set()
         self.page_names = {}  # node_id -> page_name
         self.categories = {}  # category -> list of nodes
         self.node_categories = defaultdict(list)  # node -> list of categories
-        
+
+        # Dangling & outdegree tracking
+        self.out_degrees = {}  # node_id -> outdegree
+        self.dangling_nodes = []  # list of dangling nodes
+
+
         # Results
         self.pagerank_scores = {}
         self.iterations_taken = 0
@@ -99,6 +70,9 @@ class WikiPageRank:
         if categories_file:
             print("Loading categories...")
             self._load_categories(categories_file)
+
+        print("Caching out‐degrees and dangling nodes...")
+        self._compute_degrees()
         
         print(f"Loaded graph with {len(self.nodes)} nodes and {self._count_edges()} edges")
     
@@ -148,63 +122,76 @@ class WikiPageRank:
         """Count total number of edges in the graph."""
         return sum(len(neighbors) for neighbors in self.graph.values())
     
-    def compute_pagerank(self, method: str = 'power_iteration') -> Dict[int, float]:
+    def _compute_degrees(self):
+        """Compute and cache out‐degrees and dangling node list."""
+        self.out_degrees = {u: len(self.graph[u]) for u in self.nodes}
+        self.dangling_nodes = [u for u, d in self.out_degrees.items() if d == 0]
+    
+    def compute_pagerank(self, method: str = 'power_iteration', category : Optional[str] = None) -> Dict[int, float]:
         """
         Compute PageRank scores using specified method.
         
         Args:
             method: 'power_iteration' or 'matrix' (for smaller graphs)
-            
+            **kwargs: Additional keyword arguments for the underlying method (e.g., categories: str or list of str)
+        
         Returns:
             Dictionary mapping node_id to PageRank score
         """
         if method == 'power_iteration':
-            return self._pagerank_power_iteration()
+            return self._pagerank_power_iteration(category = category)
         elif method == 'matrix':
             return self._pagerank_matrix()
         else:
             raise ValueError("Method must be 'power_iteration' or 'matrix'")
     
-    def _pagerank_power_iteration(self) -> Dict[int, float]:
+    def _pagerank_power_iteration(self, category: Optional[str] = None) -> Dict[int, float]:
         """
         Compute PageRank using power iteration method.
         More memory efficient for large graphs.
         """
         print("Computing PageRank using power iteration...")
         start_time = time.perf_counter()
+
+        # If we pass a category, we need to define the positives entries of the teleport vector only on such nodes and 0 otherwise.
+        # If no category is passed, we use a uniform distribution over all nodes.
+
+        if category is not None:
+            if category not in self.categories:
+                raise ValueError(f"Unknown category {category!r}")
+            topic_nodes = set(self.categories[category])
+            n_nodes = len(topic_nodes)
+            teleport_vector = {node : (1 / n_nodes if node in topic_nodes else 0.0) for node in self.nodes}
+        else:
+            n_nodes = len(self.nodes)
+            teleport_vector = {node : (1 / n_nodes) for node in self.nodes}  # Uniform distribution
         
-        # Initialize PageRank scores
-        n_nodes = len(self.nodes)
-        initial_score = 1.0 / n_nodes
         
-        # Current and next iteration scores
-        current_scores = {node: initial_score for node in self.nodes}
+        
+        current_scores = {node : teleport_vector[node] for node in self.nodes} # R0
         next_scores = {node: 0.0 for node in self.nodes}
-        
-        # Precompute out-degrees for efficiency
-        out_degrees = {node: len(self.graph[node]) for node in self.nodes}
-        
-        # Handle dangling nodes (nodes with no outgoing links)
-        dangling_nodes = [node for node in self.nodes if out_degrees[node] == 0]
+
         
         for iteration in range(self.max_iterations):
             # Reset next scores
             for node in self.nodes:
-                next_scores[node] = (1 - self.damping_factor) / n_nodes
+                # Teleportation contribution
+                next_scores[node] = (1 - self.damping_factor) * teleport_vector[node] 
             
-            # Add contributions from dangling nodes
-            dangling_sum = sum(current_scores[node] for node in dangling_nodes)
-            dangling_contribution = self.damping_factor * dangling_sum / n_nodes
+            # Catch the leaked probabilities from dangling nodes
+            leaked_probs = sum(current_scores[node] for node in self.dangling_nodes) 
             
+            # And add it back
             for node in self.nodes:
-                next_scores[node] += dangling_contribution
+                next_scores[node] += self.damping_factor * leaked_probs * teleport_vector[node]
             
             # Add contributions from regular nodes
             for source in self.nodes:
-                if out_degrees[source] > 0:
-                    contribution = self.damping_factor * current_scores[source] / out_degrees[source]
+                if self.out_degrees[source] > 0:
+                    contribution = self.damping_factor * current_scores[source] / self.out_degrees[source]
                     for target in self.graph[source]:
-                        next_scores[target] += contribution
+                        if target in self.nodes:
+                            next_scores[target] += contribution
             
             # Check for convergence
             diff = sum(abs(next_scores[node] - current_scores[node]) 
@@ -286,6 +273,8 @@ class WikiPageRank:
         print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
         
         return self.pagerank_scores
+    
+            
     
     def get_top_pages(self, n: int = 10) -> List[Tuple[int, str, float]]:
         """
@@ -406,9 +395,16 @@ class WikiPageRank:
         Args:
             output_file: Path to output file
         """
+        # Did we compute PageRank scores?
         if not self.pagerank_scores:
             raise ValueError("PageRank scores not computed yet. Call compute_pagerank() first.")
-        
+
+        # Does the file already exist?
+        if os.path.exists(output_file):
+            # Warn the user 
+            print(f"Warning: {output_file} already exists. Results will be overwritten.")
+
+        # Write results to CSV
         with open(output_file, 'w') as f:
             f.write("node_id,page_name,pagerank_score\n")
             
@@ -424,38 +420,135 @@ class WikiPageRank:
         
         print(f"Results saved to {output_file}")
 
+    
+    def analyze_pagerank_scores(self, top_n: int = 20):
+        """
+        Analyze the PageRank scores of the WikiPageRank instance.
+        Args:
+            top_n: Number of top pages to display
+        """
+        
+        self.analyze_results(top_n = top_n)
+        self.plot_pagerank_distribution()
+        top_10 = self.get_top_pages(n = 10)
+
+        print("\nTop 10 pages:")
+        for rank, (node_id, page_name, score) in enumerate(top_10, 1):
+            print(f"{rank}. {page_name}: {score:.6f}")
+
+
+def load_pagerank_scores(file_path: str) -> dict:
+    """
+    Load a CSV file containing PageRank scores and return a dictionary
+    mapping node_id to pagerank_score.
+
+    The CSV is expected to have columns:
+      - node_id
+      - page_name (ignored)
+      - pagerank_score
+
+    Args:
+        file_path: Path to the CSV file.
+
+    Returns:
+        A dict where keys are node_id (int) and values are pagerank_score (float).
+    """
+    # Read only the columns we need
+    df = pd.read_csv(file_path, usecols=['node_id', 'pagerank_score'])
+    
+    # Convert to dict mapping node_id to pagerank_score
+    return dict(zip(df['node_id'].astype(int), df['pagerank_score'].astype(float)))
+
+
+
+def personalized_pagerank(pagerank_dicts, weights):
+    """
+    Combine several pagerank score dicts (node -> score) into one,
+    using the given convex weights.
+    """
+    if len(pagerank_dicts) != len(weights):
+        raise ValueError("Need as many weight as pagerank dicts")
+    if any(w < 0 for w in weights):
+        raise ValueError("Weights must be non-negative")
+    if not np.isclose(sum(weights), 1.0):
+        raise ValueError("Weights must sum to 1")
+
+    combined = defaultdict(float)
+    for w, pr in zip(weights, pagerank_dicts):
+        for node, score in pr.items():
+            combined[node] += w * score
+
+    # (Optional) renormalize to 1 to kill tiny floating drift
+    total = sum(combined.values())
+    if total > 0:
+        for node in combined:
+            combined[node] /= total
+
+    return dict(combined)
+
+
+def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str):
+    """
+    Execute PageRank computation or load existing results.
+    
+    Args:
+        WikiPageRank: An instance of the WikiPageRank class.
+        output_file: Path to the output file for PageRank results.
+    
+    Returns:
+        Dictionary of PageRank scores.
+    """
+    if os.path.exists(output_file):
+        print(f"Loading existing PageRank results from {output_file}...")
+        return load_pagerank_scores(output_file)
+    else:
+        print("Computing PageRank scores...")
+        pagerank_scores = WikiPageRank.compute_pagerank(method='power_iteration')
+        WikiPageRank.save_results(output_file)
+        return pagerank_scores
+
+
+def run_and_report(pr_obj, file, label=None):
+    scores = execute_or_load_pagerank(pr_obj, file)
+    pr_obj.pagerank_scores = scores
+    if label: print(f"--- {label} ---")
+    pr_obj.analyze_pagerank_scores()
+    return scores
+
 # Example usage
 def main():
     """
     Example usage of the WikiPageRank class.
     """
-    # Initialize PageRank calculator
+
+
     wiki_pr = WikiPageRank(damping_factor=0.85, max_iterations=100, tolerance=1e-6)
-    
-    # Load data (adjust file paths as needed)
     wiki_pr.load_data(
         graph_file="data/wiki-topcats.txt",
         page_names_file="data/wiki-topcats-page-names.txt",
-        categories_file="data/wiki-topcats-categories.txt"  # Optional
+        categories_file="data/wiki-topcats-categories.txt"
     )
-    
-    # Compute PageRank
-    pagerank_scores = wiki_pr.compute_pagerank(method='power_iteration')
-    
-    # Analyze results
-    wiki_pr.analyze_results(top_n=20)
-    
-    # Plot distribution
-    wiki_pr.plot_pagerank_distribution()
-    
-    # Save results
-    wiki_pr.save_results("wiki_pagerank_results.csv")
-    
-    # Get specific results
-    top_10 = wiki_pr.get_top_pages(10)
-    print("\nTop 10 pages:")
-    for rank, (node_id, page_name, score) in enumerate(top_10, 1):
-        print(f"{rank}. {page_name}: {score:.6f}")
 
+    pagerank_scores = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", label="Wiki PageRank")
+
+    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", label="Wiki PageRank RNA")
+    
+    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", label="Wiki PageRank BIO")
+
+    # Could be interesting to study what happens when categories are very distinct (cover different nodes)
+    # Could be interesting to see if there exist some "bridge categories" that happen to connect them when we combine the PRs
+
+    weights = [0.3, 0.7] 
+
+    personalized_scores = personalized_pagerank(
+        pagerank_dicts=[pagerank_scores_RNA, pagerank_scores_BIO],
+        weights=weights
+    )
+
+    wiki_pr.pagerank_scores = personalized_scores
+    print("\n\n--- Personalized PageRank (RNA + BIO) ---\n\n")
+    wiki_pr.analyze_pagerank_scores()
+    wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
+    
 if __name__ == "__main__":
     main()
