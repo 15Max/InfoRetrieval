@@ -587,6 +587,8 @@ def main():
     Example usage of the WikiPageRank class.
     """
 
+    method = "power_iteration"
+
 
     wiki_pr = WikiPageRank(damping_factor=0.85, max_iterations=100, tolerance=1e-6)
     wiki_pr.load_data(
@@ -596,11 +598,11 @@ def main():
     )
 
 
-    _ = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv")
+    _ = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method = method)
 
-    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", category="Category:RNA")
+    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", category="Category:RNA", method = method)
     
-    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:Biomolecules")
+    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:Biomolecules", method = method)
 
     # Could be interesting to study what happens when categories are very distinct (cover different nodes)
     # Could be interesting to see if there exist some "bridge categories" that happen to connect them when we combine the PRs
