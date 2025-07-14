@@ -30,11 +30,7 @@ class WikiPageRank:
         self.max_iterations = max_iterations
         self.tolerance = tolerance
         
-        # Data structures
-        # Maybe we can join dictionaries (adj list, page_names and node_categories) into one?
-        # Also, do we need to store the node category? (Topic PR). Maybe we can also
-        # precompute outdegrees and dandling nodes.
-
+        # Graph representation
         self.graph = defaultdict(list)  # adjacency list
         self.nodes = set()
         self.page_names = {}  # node_id -> page_name
@@ -77,7 +73,12 @@ class WikiPageRank:
         print(f"Loaded graph with {len(self.nodes)} nodes and {self._count_edges()} edges")
     
     def _load_graph(self, graph_file: str):
-        """Load the graph edges from the wiki-topcats file."""
+        """
+        Load the graph edges from the wiki-topcats file.
+        
+        Args:
+            graph_file: Path to the wiki-topcats file containing edges
+        """
         with open(graph_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -91,7 +92,12 @@ class WikiPageRank:
                         self.nodes.add(target)
     
     def _load_page_names(self, page_names_file: str):
-        """Load page names from the wiki-topcats-page-names file."""
+        """
+        Load page names from the wiki-topcats-page-names file.
+        
+        Args:
+            page_names_file: Path to the wiki-topcats-page-names file.
+        """
         with open(page_names_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -103,7 +109,12 @@ class WikiPageRank:
                         self.page_names[node_id] = page_name
     
     def _load_categories(self, categories_file: str):
-        """Load categories from the wiki-topcats-categories file."""
+        """
+        Load categories from the wiki-topcats-categories file.
+        
+        Args:
+            categories_file: Path to the wiki-topcats-categories file.
+        """
         with open(categories_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -133,7 +144,7 @@ class WikiPageRank:
         
         Args:
             method: 'power_iteration' or 'matrix' (for smaller graphs)
-            **kwargs: Additional keyword arguments for the underlying method (e.g., categories: str or list of str)
+            category: Optional category to perform Topic-Specific PageRank computation
         
         Returns:
             Dictionary mapping node_id to PageRank score
@@ -149,6 +160,12 @@ class WikiPageRank:
         """
         Compute PageRank using power iteration method.
         More memory efficient for large graphs.
+
+        Args:
+            category: Optional category to perform Topic-Specific PageRank computation
+        
+        Returns:
+            Dictionary mapping node_id to PageRank score
         """
         print("Computing PageRank using power iteration...")
         start_time = time.perf_counter()
@@ -217,65 +234,20 @@ class WikiPageRank:
         
         return self.pagerank_scores
     
-    def _pagerank_matrix(self) -> Dict[int, float]:
+    def _pagerank_matrix(self, category: Optional[str] = None) -> Dict[int, float]:
         """
-        Compute PageRank using matrix method.
-        Only recommended for smaller graphs due to memory requirements.
+        Compute PageRank using matrix method and GraphBLAS
         """
-        print("Computing PageRank using matrix method...")
-        start_time = time.time()
+        print("Computing PageRank using matrix method leveraging GraphBLAS...")
+        start_time = time.perf_counter()
         
-        # Create node index mapping
-        node_list = list(self.nodes)
-        node_to_idx = {node: i for i, node in enumerate(node_list)}
-        n_nodes = len(node_list)
         
-        # Build transition matrix
-        M = np.zeros((n_nodes, n_nodes))
-        
-        for source in self.nodes:
-            source_idx = node_to_idx[source]
-            out_degree = len(self.graph[source])
-            
-            if out_degree > 0:
-                for target in self.graph[source]:
-                    target_idx = node_to_idx[target]
-                    M[target_idx, source_idx] = 1.0 / out_degree
-            else:
-                # Dangling node - distribute equally to all nodes
-                M[:, source_idx] = 1.0 / n_nodes
-        
-        # Apply damping factor
-        M = self.damping_factor * M + (1 - self.damping_factor) / n_nodes
-        
-        # Power iteration
-        v = np.ones(n_nodes) / n_nodes
-        
-        for iteration in range(self.max_iterations):
-            v_new = M @ v
-            
-            # Check convergence
-            if np.linalg.norm(v_new - v, 1) < self.tolerance:
-                self.converged = True
-                self.iterations_taken = iteration + 1
-                break
-            
-            v = v_new
-        else:
-            self.converged = False
-            self.iterations_taken = self.max_iterations
-        
-        # Convert back to dictionary
-        self.pagerank_scores = {node_list[i]: v[i] for i in range(n_nodes)}
-        
-        elapsed_time = time.time() - start_time
+        elapsed_time = time.perf_counter() - start_time
         print(f"PageRank computation completed in {elapsed_time:.2f} seconds")
         print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
         
         return self.pagerank_scores
     
-    def pagerank_graphblas(self, category: Optional[str] = None) -> Dict[int,float]:
-        pass
         
     def get_top_pages(self, n: int = 10) -> List[Tuple[int, str, float]]:
         """
@@ -462,10 +434,17 @@ def load_pagerank_scores(file_path: str) -> dict:
 
 
 
-def personalized_pagerank(pagerank_dicts, weights):
+def personalized_pagerank(pagerank_dicts : List[Dict[int, float]], weights: List[float]) -> Dict[int, float]:
     """
     Combine several pagerank score dicts (node -> score) into one,
     using the given convex weights.
+
+    Args:
+        pagerank_dicts: List of dictionaries containing PageRank scores.
+        weights: List of weights for each PageRank dict, must sum to 1 (we're doing a linear combination).
+    
+    Returns:
+        A dictionary mapping node_id to combined PageRank score.
     """
     if len(pagerank_dicts) != len(weights):
         raise ValueError("Need as many weight as pagerank dicts")
@@ -479,7 +458,7 @@ def personalized_pagerank(pagerank_dicts, weights):
         for node, score in pr.items():
             combined[node] += w * score
 
-    # (Optional) renormalize to 1 to kill tiny floating drift
+    # Normalize the combined scores to ensure they sum to 1 (kills small numerical errors)
     total = sum(combined.values())
     if total > 0:
         for node in combined:
@@ -488,13 +467,14 @@ def personalized_pagerank(pagerank_dicts, weights):
     return dict(combined)
 
 
-def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str):
+def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, category: Optional[str] = None):
     """
     Execute PageRank computation or load existing results.
     
     Args:
         WikiPageRank: An instance of the WikiPageRank class.
         output_file: Path to the output file for PageRank results.
+        category: Optional category to filter PageRank computation, only used if we're computing PageRank.
     
     Returns:
         Dictionary of PageRank scores.
@@ -504,15 +484,29 @@ def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str):
         return load_pagerank_scores(output_file)
     else:
         print("Computing PageRank scores...")
-        pagerank_scores = WikiPageRank.compute_pagerank(method='power_iteration')
+        pagerank_scores = WikiPageRank.compute_pagerank(method='power_iteration', category = category)
         WikiPageRank.save_results(output_file)
         return pagerank_scores
 
 
-def run_and_report(pr_obj, file, label=None):
-    scores = execute_or_load_pagerank(pr_obj, file)
+def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[str] = None):
+    """
+    Run PageRank computation and report results. If file_name exists, load results instead and analyze them.
+
+    Args:
+        pr_obj: An instance of the WikiPageRank class.
+        file_name: Path to the output file for PageRank results or to a file to load results from.
+        category: Optional category to filter PageRank computation, only used if we're computing PageRank.
+    
+    Returns:
+        Dictionary of PageRank scores.
+    """
+    scores = execute_or_load_pagerank(WikiPageRank = pr_obj, output_file = file_name, category = category)
     pr_obj.pagerank_scores = scores
-    if label: print(f"--- {label} ---")
+    if category != None:
+        print(f"--- {category} ---")
+    else:
+        print(f"--- Wiki PageRank ---")
     pr_obj.analyze_pagerank_scores()
     return scores
 
@@ -530,22 +524,12 @@ def main():
         categories_file="data/wiki-topcats-categories.txt"
     )
 
+
+    _ = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv")
+
+    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", category="Category:RNA")
     
-    # Test GraphBLAS PageRank
-    print("\n\n--- GraphBLAS PageRank ---\n\n")
-    wiki_pr.pagerank_scores = wiki_pr.pagerank_graphblas(category="Nutrition")
-    wiki_pr.analyze_pagerank_scores()
-
-    # Normal method on same category
-    print("\n\n--- Normal PageRank on Nutrition category ---\n\n")
-    wiki_pr.pagerank_scores = wiki_pr.compute_pagerank(method='power_iteration', category="Nutrition")
-    wiki_pr.analyze_pagerank_scores()
-
-    pagerank_scores = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", label="Wiki PageRank")
-
-    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", label="Wiki PageRank RNA")
-    
-    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", label="Wiki PageRank BIO")
+    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:BIO")
 
     # Could be interesting to study what happens when categories are very distinct (cover different nodes)
     # Could be interesting to see if there exist some "bridge categories" that happen to connect them when we combine the PRs

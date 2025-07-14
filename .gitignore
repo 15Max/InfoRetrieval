@@ -1,7 +1,9 @@
 # Ignore data and results folders
-data/
-results/
+data/*
+results/*
 
+!data/.gitkeep
+!results/.gitkeep
 
 # Ignore .csv .pkl and Zone.Identifier files
 *.pkl 
