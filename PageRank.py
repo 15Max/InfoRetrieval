@@ -31,7 +31,7 @@ class WikiPageRank:
         self.tolerance = tolerance
         
         # Graph representation
-        self.graph = defaultdict(list)  # adjacency list
+        self.graph = defaultdict(list)  # adjacency list, node_id -> list of neighbors
         self.nodes = set()
         self.page_names = {}  # node_id -> page_name
         self.categories = {}  # category -> list of nodes
