@@ -30,6 +30,8 @@ for i, s in zip(indices.tolist(), values.tolist()):
 D = inv.diag()
 RandomMatrix = D.mxm(RandomMatrix, op = 'plus_times')
 
+print(RandomMatrix.shape)
+
 print("Standardized")
 
 vector = np.full(shape = RandomMatrix.nrows, fill_value = 1/RandomMatrix.nrows)

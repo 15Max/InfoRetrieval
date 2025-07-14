@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
+from graphblas import Matrix, Vector, binary, agg, dtypes
 import matplotlib.pyplot as plt
 import time
 import os
@@ -40,6 +41,9 @@ class WikiPageRank:
         # Dangling & outdegree tracking
         self.out_degrees = {}  # node_id -> outdegree
         self.dangling_nodes = []  # list of dangling nodes
+
+        # Matrix
+        self.M = None
 
 
         # Results
@@ -129,6 +133,37 @@ class WikiPageRank:
                         for node_id in node_ids:
                             self.node_categories[node_id].append(category)
     
+    def _build_global_matrix(self):
+        """
+        Build and cache the n×n row-stochastic adjacency matrix M
+        assuming node IDs are 0,1,…,n-1.
+        """
+        
+        # Sanity check, remove me after
+        n = len(self.nodes)
+        assert self.nodes == set(range(n)), "Expected nodes == {0,…,n-1}"
+
+        # Populate the matrix, 0 when no outgoing edge, 1/|outdegree| otherwise
+        rows, cols, vals = [], [], []
+        for u in range(n):
+            outdeg = self.out_degrees.get(u, 0)
+            if outdeg == 0:
+                continue
+            w = 1.0 / outdeg
+            for v in self.graph[u]:
+                rows.append(u)
+                cols.append(v)
+                vals.append(w)
+
+        # Create the matrix object
+        self.M = Matrix.from_coo(
+            rows, cols, vals,
+            dup_op=binary.plus, # Really no need i think
+            dtype=dtypes.FP32
+        )
+
+
+    
     def _count_edges(self) -> int:
         """Count total number of edges in the graph."""
         return sum(len(neighbors) for neighbors in self.graph.values())
@@ -138,7 +173,7 @@ class WikiPageRank:
         self.out_degrees = {u: len(self.graph[u]) for u in self.nodes}
         self.dangling_nodes = [u for u, d in self.out_degrees.items() if d == 0]
     
-    def compute_pagerank(self, method: str = 'power_iteration', category : Optional[str] = None) -> Dict[int, float]:
+    def compute_pagerank(self, method: str = 'matrix', category : Optional[str] = None) -> Dict[int, float]:
         """
         Compute PageRank scores using specified method.
         
@@ -152,7 +187,7 @@ class WikiPageRank:
         if method == 'power_iteration':
             return self._pagerank_power_iteration(category = category)
         elif method == 'matrix':
-            return self._pagerank_matrix()
+            return self._pagerank_matrix(category = category)
         else:
             raise ValueError("Method must be 'power_iteration' or 'matrix'")
     
@@ -239,15 +274,49 @@ class WikiPageRank:
         Compute PageRank using matrix method and GraphBLAS
         """
         print("Computing PageRank using matrix method leveraging GraphBLAS...")
+
+        diff, iterations, max_iterations = 10e6, 0, 200
+
+        if self.M is None:
+            self._build_global_matrix()
+            print(f"Done creating the matrix of shape: {self.M.shape}")
+
         start_time = time.perf_counter()
+
+        if category is not None:
+            if category not in self.categories:
+                raise ValueError(f"Unknown category {category!r}")
+            topic_nodes = set(self.categories[category])
+            n_nodes = len(topic_nodes)
+            node_values = {node : (1 / n_nodes if node in topic_nodes else 0.0) for node in self.nodes}
+            teleport_vector = Vector.from_dict(node_values, dtype = dtypes.FP32)
+        else:
+            n_nodes = len(self.nodes)
+            node_values = {node : (1 / n_nodes) for node in self.nodes}  # Uniform distribution
+            teleport_vector = Vector.from_dict(node_values, dtype = dtypes.FP32)
+
+        R = Vector.from_dict(node_values, dtype = dtypes.FP32)
+
+        while diff > self.tolerance and iterations < max_iterations:
+            old_R = R
+            R = self.damping_factor * old_R.vxm(self.M) + (1 - self.damping_factor) * teleport_vector
+            diff = (R - old_R).reduce(agg.L1norm)
+            iterations += 1
         
-        
-        elapsed_time = time.perf_counter() - start_time
-        print(f"PageRank computation completed in {elapsed_time:.2f} seconds")
+        if diff < self.tolerance:
+                self.converged = True
+
+        self.iterations_taken = iterations
+
+        elapsed = time.perf_counter() - start_time
+        print(f"PageRank completed in {elapsed:.2f}s")
         print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
+
         
+        self.pagerank_scores = R.to_dict()
+
         return self.pagerank_scores
-    
+        
         
     def get_top_pages(self, n: int = 10) -> List[Tuple[int, str, float]]:
         """
@@ -467,7 +536,7 @@ def personalized_pagerank(pagerank_dicts : List[Dict[int, float]], weights: List
     return dict(combined)
 
 
-def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, category: Optional[str] = None):
+def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, category: Optional[str] = None, method: str = 'matrix') -> Dict[int, float]:
     """
     Execute PageRank computation or load existing results.
     
@@ -475,6 +544,7 @@ def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, categ
         WikiPageRank: An instance of the WikiPageRank class.
         output_file: Path to the output file for PageRank results.
         category: Optional category to filter PageRank computation, only used if we're computing PageRank.
+        method: Method to compute PageRank, either 'power_iteration' or 'matrix'.
     
     Returns:
         Dictionary of PageRank scores.
@@ -484,12 +554,12 @@ def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, categ
         return load_pagerank_scores(output_file)
     else:
         print("Computing PageRank scores...")
-        pagerank_scores = WikiPageRank.compute_pagerank(method='power_iteration', category = category)
+        pagerank_scores = WikiPageRank.compute_pagerank(method = method, category = category)
         WikiPageRank.save_results(output_file)
         return pagerank_scores
 
 
-def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[str] = None):
+def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[str] = None, method: str = 'matrix') -> Dict[int, float]:
     """
     Run PageRank computation and report results. If file_name exists, load results instead and analyze them.
 
@@ -497,11 +567,12 @@ def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[st
         pr_obj: An instance of the WikiPageRank class.
         file_name: Path to the output file for PageRank results or to a file to load results from.
         category: Optional category to filter PageRank computation, only used if we're computing PageRank.
+        method: Method to compute PageRank, either 'power_iteration' or 'matrix'.
     
     Returns:
         Dictionary of PageRank scores.
     """
-    scores = execute_or_load_pagerank(WikiPageRank = pr_obj, output_file = file_name, category = category)
+    scores = execute_or_load_pagerank(WikiPageRank = pr_obj, output_file = file_name, category = category, method = method)
     pr_obj.pagerank_scores = scores
     if category != None:
         print(f"--- {category} ---")
@@ -529,7 +600,7 @@ def main():
 
     pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", category="Category:RNA")
     
-    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:BIO")
+    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:Biomolecules")
 
     # Could be interesting to study what happens when categories are very distinct (cover different nodes)
     # Could be interesting to see if there exist some "bridge categories" that happen to connect them when we combine the PRs
