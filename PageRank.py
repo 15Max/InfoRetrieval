@@ -274,8 +274,9 @@ class WikiPageRank:
         
         return self.pagerank_scores
     
-            
-    
+    def pagerank_graphblas(self, category: Optional[str] = None) -> Dict[int,float]:
+        pass
+        
     def get_top_pages(self, n: int = 10) -> List[Tuple[int, str, float]]:
         """
         Get top N pages by PageRank score.
@@ -528,6 +529,17 @@ def main():
         page_names_file="data/wiki-topcats-page-names.txt",
         categories_file="data/wiki-topcats-categories.txt"
     )
+
+    
+    # Test GraphBLAS PageRank
+    print("\n\n--- GraphBLAS PageRank ---\n\n")
+    wiki_pr.pagerank_scores = wiki_pr.pagerank_graphblas(category="Nutrition")
+    wiki_pr.analyze_pagerank_scores()
+
+    # Normal method on same category
+    print("\n\n--- Normal PageRank on Nutrition category ---\n\n")
+    wiki_pr.pagerank_scores = wiki_pr.compute_pagerank(method='power_iteration', category="Nutrition")
+    wiki_pr.analyze_pagerank_scores()
 
     pagerank_scores = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", label="Wiki PageRank")
 

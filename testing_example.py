@@ -100,48 +100,61 @@ def pagerank_damping(webpages: np.ndarray, teleport_vector: np.ndarray, toleranc
     return R, iterations
 
 
+def pagerank_graphblas():
+    pass 
 
 
-if __name__ == "__main__":
+def report_print(method: str, R_vector: np.ndarray, iterations: np.int16):
+    """
+    Pretty print function
+    """
+    print(f"Using {method}, we achieved R stationary distribution:{R_vector} in this number of iterations: {iterations}, it sums to: {np.sum(R_vector)}")
 
+def test_pagerank():
+    """
+    Test the pageranks algorithtms on a random generated matrix and on a trap matrix with a bottom strongly connected component
+    Report the final stationary probability and the number of iterations
+    """
+    
     random_matrix = np.random.rand(5,5)
     random_matrix /= np.sum(random_matrix, axis = 1, keepdims = True)
     random_uniform_vector = np.full(shape = random_matrix.shape[0], fill_value = 1 / random_matrix.shape[0])
 
+    # 1→2, 2→3, 3→4, 5→4 and 4→5
+    trap_matrix = np.zeros((5,5))
+    trap_matrix[0, 1] = 1.0
+    trap_matrix[1, 2] = 1.0
+    trap_matrix[2, 3] = 1.0
+    trap_matrix[4, 3] = 1.0
+    trap_matrix[3, 4] = 1.0
+
+    print("\n\nRandom matrix test \n\n")
+
     R, iterations = pagerank(webpages = random_matrix,
                              teleport_vector = random_uniform_vector)
     
-
-    print(random_matrix)
-    print(f"Using PageRank without damping, we achieved R stationary distribution:{R} in this number of iterations: {iterations}, it sums to: {np.sum(R)}")
+    report_print(method = "PageRank without damping", R_vector = R, iterations = iterations)
 
     R, iterations = pagerank_damping(webpages = random_matrix,
                                      teleport_vector = random_uniform_vector)
-    
-    print(f"Using PageRank with damping, we achieved R stationary distribution:{R} in this number of iterations: {iterations}, it sums to: {np.sum(R)}")
+
+    report_print(method = "PageRank with damping", R_vector = R, iterations = iterations)
 
 
-    trap_matrix = np.zeros((5,5))
-    # 1→2
-    trap_matrix[0, 1] = 1.0
-    # 2→3
-    trap_matrix[1, 2] = 1.0
-    # 3→4
-    trap_matrix[2, 3] = 1.0
-    # 4→5
-    trap_matrix[4, 3] = 1.0
-    # 5→4
-    trap_matrix[3, 4] = 1.0
-
-    print(trap_matrix)
+    print("\n\nTrap matrix test \n\n")
 
     R, iterations = pagerank(webpages = trap_matrix,
                              teleport_vector = random_uniform_vector)
-    
-    print(f"Using PageRank without damping, we achieved R stationary distribution:{R} in this number of iterations: {iterations}, it sums to: {np.sum(R)}")
+
+    report_print(method = "PageRank without damping", R_vector = R, iterations = iterations)
+
 
     R, iterations = pagerank_damping(webpages = trap_matrix,
                                      teleport_vector = random_uniform_vector)
     
-    print(f"Using PageRank with damping, we achieved R stationary distribution:{R} in this number of iterations: {iterations}, it sums to: {np.sum(R)}")
+    report_print(method = "PageRank with damping", R_vector = R, iterations = iterations)
 
+
+if __name__ == "__main__":
+
+    test_pagerank()
