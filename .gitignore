@@ -6,6 +6,9 @@ results/*
 !data/.gitkeep
 !results/.gitkeep
 
+
+testing_example.py
+
 # Ignore .csv .pkl and Zone.Identifier files
 *.pkl 
 *.csv:Zone.Identifier
