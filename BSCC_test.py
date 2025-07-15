@@ -1,6 +1,7 @@
 # This file contains the code to run a small example where we compare what happens when running on a graph with a 
 # bottom strongly connected component (BSCC) the "classic" PageRank algorithm with no damping and no jump vector versus the PageRank algorithm that used
-# damping and a jump vector. For reference, a BSCC is a subset of a graph from which we can never escape.
+# damping and a jump vector. For reference, a BSCC is a subset of a graph from which we can never escape once we enter it and without damping (and a jump vector)
+# all the probability mass will eventually end up in that BSCC (limiting distribution for DTMCs)
 
 
 from graphblas import Matrix, Vector, dtypes, agg
@@ -88,7 +89,7 @@ def pagerank_damping(webpages : np.ndarray, tolerance: float = 10e-6, max_iterat
     # Teleport vector is always uniform so we just copy R
     E = R
 
-    # Power iteration method no damping
+    # Power iteration method with damping
     while converged == False and iterations < max_iterations:
 
         old_R = R 
@@ -105,7 +106,7 @@ def pagerank_damping(webpages : np.ndarray, tolerance: float = 10e-6, max_iterat
 
 def report_print(method: str, R_vector: Vector, iterations: int, convergence: bool = False):
     """
-    Pretty print function
+    Pretty print function to report the results of the PageRank algorithm
 
     Args:
         method (str): The name of the method used
