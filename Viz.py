@@ -4,11 +4,11 @@ import networkx as nx
 
 def plot_subgraph(
     pr_obj,
-    category: str = None,
     top_k: int = 30,
     with_labels: bool = False,
     label_count: int = 5,
-    save_path: str = None
+    save_path: str = None, 
+    title: str = None
 ):
     """
     Plot a subgraph of the PageRank results.
@@ -16,30 +16,22 @@ def plot_subgraph(
 
     Args:
         pr_obj: WikiPageRank instance with pagerank_scores computed.
-        category: Optional first category name. If None, use global top nodes.
         top_k: Number of top nodes by PageRank score to include in the subgraph.
         with_labels: Whether to annotate nodes with their page names.
         label_count: Number of top nodes (by PageRank score) to annotate.
         save_path: If provided, saves the figure to this file path.
+        title: Custom title for the plot. If None, a default title is used.
     """
     if not pr_obj.pagerank_scores:
         raise ValueError("PageRank scores not computed. Run compute_pagerank() first.")
 
     # Determine which nodes to plot based on the presence of categories
-    if category is None:
-        candidate_nodes = pr_obj.nodes
-        title = f"Top {top_k} Nodes (Global)"
-    else:
-        cat_nodes = set()
-        title_parts = []
-        if category not in pr_obj.categories:
-            raise ValueError(f"Unknown category '{category}'")
-        
-        cat_nodes.update(pr_obj.categories[category])
-        title_parts.append(category)
-        candidate_nodes = cat_nodes
-        title = f"Top {top_k} Nodes in {' , '.join(title_parts)}"
+ 
+    candidate_nodes = pr_obj.nodes
+    if title is None:
+        title = f"Top {top_k} Nodes by Pagerank Score"
 
+    
     # Pick top_k by PageRank score
     top_nodes = sorted(
         candidate_nodes, key=lambda n: pr_obj.pagerank_scores.get(n, 0), reverse=True

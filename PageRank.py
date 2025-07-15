@@ -646,7 +646,7 @@ def main():
     )
     if visualize:
         wiki_pr.pagerank_scores = pagerank_scores_RNA
-        plot_subgraph(wiki_pr, category="Category:RNA", top_k=15, with_labels=True, label_count=5, save_path="results/RNA.png")
+        plot_subgraph(wiki_pr, top_k=15, with_labels=True, label_count=5, save_path="results/RNA.png", title="Top RNA Nodes by PageRank Score")
 
     # Compute BIO category PR and visualize
     pagerank_scores_BIO = run_and_report(
@@ -657,7 +657,7 @@ def main():
     )
     if visualize:
         wiki_pr.pagerank_scores = pagerank_scores_BIO
-        plot_subgraph(wiki_pr, category="Category:Biomolecules", top_k=15, with_labels=True, label_count=5, save_path="results/BIO.png")
+        plot_subgraph(wiki_pr, top_k=15, with_labels=True, label_count=5, save_path="results/BIO.png", title="Top BIO Nodes by PageRank Score")
 
     # Personalized PageRank combining RNA and BIO 
     weights = [0.3, 0.7]
@@ -668,6 +668,8 @@ def main():
     
     wiki_pr.pagerank_scores = personalized_scores
     wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
+    if visualize:
+        plot_subgraph(wiki_pr, top_k=30, with_labels=True, label_count=10, save_path="results/personalized.png", title="Top Personalized RNA + BIO Nodes by PageRank Score")
 
 if __name__ == "__main__":
     main()
