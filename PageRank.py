@@ -27,6 +27,7 @@ class WikiPageRank:
             max_iterations: Maximum number of iterations
             tolerance: Convergence threshold
         """
+
         self.damping_factor = damping_factor
         self.max_iterations = max_iterations
         self.tolerance = tolerance
@@ -34,55 +35,65 @@ class WikiPageRank:
         # Graph representation
         self.graph = defaultdict(list)  # adjacency list, node_id -> list of neighbors
         self.nodes = set()
+
+        # Graph and nodes "metadata"
         self.page_names = {}  # node_id -> page_name
         self.categories = {}  # category -> list of nodes
         self.node_categories = defaultdict(list)  # node -> list of categories
-
-        # Dangling & outdegree tracking
         self.out_degrees = {}  # node_id -> outdegree
+
+        # Nodes that have outdegree equal to 0
         self.dangling_nodes = []  # list of dangling nodes
 
-        # Matrix
+        # Adjacency matrix
         self.M = None
-
 
         # Results
         self.pagerank_scores = {}
         self.iterations_taken = 0
         self.converged = False
+
+    def reset_convergence_params(self):
+        """
+        Reset the self.iterations and self.converged params. Used when we call compute_pagerank
+        to not drag previous results in other computations.
+        """
+
+        self.iterations_taken = 0
+        self.converged = False
     
     def load_data(self, graph_file: str, page_names_file: str, 
-                  categories_file: str = None):
+                  categories_file: Optional[str] = None):
         """
         Load the wiki-topcats dataset.
         
         Args:
             graph_file: Path to wiki-topcats file (edges)
-            page_names_file: Path to wiki-topcats-page-names file
-            categories_file: Path to wiki-topcats-categories file (optional)
+            page_names_file: Path to wiki-topcats-page-names file (node "names")
+            categories_file: Path to wiki-topcats-categories file (maps categories to nodes)
         """
+
         print("Loading graph edges...")
         self._load_graph(graph_file)
         
         print("Loading page names...")
         self._load_page_names(page_names_file)
         
+        # Used for topic specific pagerank and some analysis, but not strictly necessary
         if categories_file:
             print("Loading categories...")
             self._load_categories(categories_file)
-
-        print("Caching out‐degrees and dangling nodes...")
-        self._compute_degrees()
         
         print(f"Loaded graph with {len(self.nodes)} nodes and {self._count_edges()} edges")
     
     def _load_graph(self, graph_file: str):
         """
-        Load the graph edges from the wiki-topcats file.
+        Load the graph edges from the wiki-topcats file and compute the outdegrees and the dangling nodes
         
         Args:
             graph_file: Path to the wiki-topcats file containing edges
         """
+
         with open(graph_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -94,7 +105,10 @@ class WikiPageRank:
                         self.graph[source].append(target)
                         self.nodes.add(source)
                         self.nodes.add(target)
-    
+
+        # Cache also the outdegrees and dangling nodes
+        self._compute_degrees()
+
     def _load_page_names(self, page_names_file: str):
         """
         Load page names from the wiki-topcats-page-names file.
@@ -102,6 +116,7 @@ class WikiPageRank:
         Args:
             page_names_file: Path to the wiki-topcats-page-names file.
         """
+
         with open(page_names_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -119,6 +134,7 @@ class WikiPageRank:
         Args:
             categories_file: Path to the wiki-topcats-categories file.
         """
+
         with open(categories_file, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -135,66 +151,87 @@ class WikiPageRank:
     
     def _build_global_matrix(self):
         """
-        Build and cache the n×n row-stochastic adjacency matrix M
-        assuming node IDs are 0,1,…,n-1.
+        Build and cache the (n,n) row-stochastic adjacency matrix M
         """
         
-        # Sanity check, remove me after
-        n = len(self.nodes)
-        assert self.nodes == set(range(n)), "Expected nodes == {0,…,n-1}"
+        # It is assumed that nodes go from 0 to n-1 (and this is true for the dataset that we use)
+        # If that was not the case, a map would need to be built and we would iterate over that.
 
-        # Populate the matrix, 0 when no outgoing edge, 1/|outdegree| otherwise
+        n = len(self.nodes)
+
+        # Populate the matrix, 1/n when no outgoing edge, 1/|outdegree| otherwise
         rows, cols, vals = [], [], []
         for u in range(n):
-            outdeg = self.out_degrees.get(u, 0)
+            outdeg = self.out_degrees.get(u, 0)  
+
+            # Here we catch the dangling node (has outdegree = 0) and its row in the matrix
+            # gets set to a uniform probability. This is done when we define the matrix for efficiency reasons.
+            # In the other method we handle it at each iteration, but by using this approach there is no need
+            # to do so. Also as a side note, in this dataset there're no dangling nodes so we should never enter here
+
             if outdeg == 0:
+                outdeg = n # Here we assume to fix the dangling node probs with a uniform distr over nodes
+                w = 1.0 / n
+                for v in range(n): # "Populate" the row of the node
+                    rows.append(u)
+                    cols.append(v)
+                    vals.append(w)
                 continue
+
+            # If instead it is not dangling, uniform distr over the reached nodes
             w = 1.0 / outdeg
             for v in self.graph[u]:
                 rows.append(u)
                 cols.append(v)
                 vals.append(w)
 
-        # Create the matrix object
+        # Create the matrix graphblas object
         self.M = Matrix.from_coo(
             rows, cols, vals,
-            dup_op=binary.plus, # Really no need i think
             dtype=dtypes.FP32
         )
 
 
     
     def _count_edges(self) -> int:
-        """Count total number of edges in the graph."""
+        """
+        Count total number of edges in the graph.
+        """
+
         return sum(len(neighbors) for neighbors in self.graph.values())
     
     def _compute_degrees(self):
-        """Compute and cache out‐degrees and dangling node list."""
+        """
+        Compute and cache out‐degrees and dangling node list.
+        """
+
         self.out_degrees = {u: len(self.graph[u]) for u in self.nodes}
         self.dangling_nodes = [u for u, d in self.out_degrees.items() if d == 0]
     
     def compute_pagerank(self, method: str = 'matrix', category : Optional[str] = None) -> Dict[int, float]:
         """
-        Compute PageRank scores using specified method.
+        Compute PageRank scores using the power iteration method and a specified data structure
         
         Args:
-            method: 'power_iteration' or 'matrix' (for smaller graphs)
+            method: 'list' or 'matrix' 
             category: Optional category to perform Topic-Specific PageRank computation
         
         Returns:
             Dictionary mapping node_id to PageRank score
         """
-        if method == 'power_iteration':
-            return self._pagerank_power_iteration(category = category)
+
+        self.reset_convergence_params()
+
+        if method == 'list':
+            return self._pagerank_list(category = category)
         elif method == 'matrix':
             return self._pagerank_matrix(category = category)
         else:
-            raise ValueError("Method must be 'power_iteration' or 'matrix'")
+            raise ValueError("Method must be 'list' or 'matrix'")
     
-    def _pagerank_power_iteration(self, category: Optional[str] = None) -> Dict[int, float]:
+    def _pagerank_list(self, category: Optional[str] = None) -> Dict[int, float]:
         """
-        Compute PageRank using power iteration method.
-        More memory efficient for large graphs.
+        Compute PageRank using the power iteration method and an adjacency list data structure (python "native" approach)
 
         Args:
             category: Optional category to perform Topic-Specific PageRank computation
@@ -202,7 +239,10 @@ class WikiPageRank:
         Returns:
             Dictionary mapping node_id to PageRank score
         """
-        print("Computing PageRank using power iteration...")
+
+        print("Computing PageRank using power iteration and adjacency lists...")
+
+
         start_time = time.perf_counter()
 
         # If we pass a category, we need to define the positives entries of the teleport vector only on such nodes and 0 otherwise.
@@ -219,12 +259,13 @@ class WikiPageRank:
             teleport_vector = {node : (1 / n_nodes) for node in self.nodes}  # Uniform distribution
         
         
-        
+        # The first initialization copies the one of the teleport vector ("warm start" for topic specifc PR)
+
         current_scores = {node : teleport_vector[node] for node in self.nodes} # R0
         next_scores = {node: 0.0 for node in self.nodes}
 
         
-        for iteration in range(self.max_iterations):
+        while self.iterations_taken < self.max_iterations and self.converged == False:
             # Reset next scores
             for node in self.nodes:
                 # Teleportation contribution
@@ -246,21 +287,16 @@ class WikiPageRank:
                             next_scores[target] += contribution
             
             # Check for convergence
-            diff = sum(abs(next_scores[node] - current_scores[node]) 
-                      for node in self.nodes)
-            
+            diff = sum(abs(next_scores[node] - current_scores[node]) for node in self.nodes)
+
+            # Update convergence/iter check params
+            self.iterations_taken += 1
             if diff < self.tolerance:
                 self.converged = True
-                self.iterations_taken = iteration + 1
-                break
             
             # Swap scores for next iteration
             current_scores, next_scores = next_scores, current_scores
-        
-        else:
-            self.converged = False
-            self.iterations_taken = self.max_iterations
-        
+    
         self.pagerank_scores = current_scores
         
         elapsed_time = time.perf_counter() - start_time
@@ -271,11 +307,12 @@ class WikiPageRank:
     
     def _pagerank_matrix(self, category: Optional[str] = None) -> Dict[int, float]:
         """
-        Compute PageRank using matrix method and GraphBLAS
+        Compute PageRank using matrix method and GraphBLAS.
+        python-graphblas is a python wrapper over GraphBLAS a library containing highly optimized C routines for sparse linear algebra
+        (e.g. fast sparse matrix-vector multiplies (our case!)), making PageRank power iterations both memory and time-efficient.
+        Further info at (https://graphblas.org/) and (https://pypi.org/project/python-graphblas/)
         """
         print("Computing PageRank using matrix method leveraging GraphBLAS...")
-
-        diff, iterations, max_iterations = 10e6, 0, 200
 
         if self.M is None:
             self._build_global_matrix()
@@ -295,20 +332,20 @@ class WikiPageRank:
             node_values = {node : (1 / n_nodes) for node in self.nodes}  # Uniform distribution
             teleport_vector = Vector.from_dict(node_values, dtype = dtypes.FP32)
 
-        R = Vector.from_dict(node_values, dtype = dtypes.FP32)
+        R = Vector.from_dict(node_values, dtype = dtypes.FP32) 
 
-        while diff > self.tolerance and iterations < max_iterations:
+        while self.iterations_taken < self.max_iterations and self.converged == False:
             old_R = R
             R = self.damping_factor * old_R.vxm(self.M) + (1 - self.damping_factor) * teleport_vector
             diff = (R - old_R).reduce(agg.L1norm)
-            iterations += 1
         
-        if diff < self.tolerance:
+            if diff < self.tolerance:
                 self.converged = True
 
-        self.iterations_taken = iterations
+            self.iterations_taken += 1
 
         elapsed = time.perf_counter() - start_time
+
         print(f"PageRank completed in {elapsed:.2f}s")
         print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
 
@@ -328,6 +365,7 @@ class WikiPageRank:
         Returns:
             List of (node_id, page_name, pagerank_score) tuples
         """
+
         if not self.pagerank_scores:
             raise ValueError("PageRank scores not computed yet. Call compute_pagerank() first.")
         
@@ -506,11 +544,11 @@ def load_pagerank_scores(file_path: str) -> dict:
 def personalized_pagerank(pagerank_dicts : List[Dict[int, float]], weights: List[float]) -> Dict[int, float]:
     """
     Combine several pagerank score dicts (node -> score) into one,
-    using the given convex weights.
+    using the given linear combination of weights
 
     Args:
         pagerank_dicts: List of dictionaries containing PageRank scores.
-        weights: List of weights for each PageRank dict, must sum to 1 (we're doing a linear combination).
+        weights: List of weights for each PageRank dict, must sum to 1
     
     Returns:
         A dictionary mapping node_id to combined PageRank score.
@@ -544,7 +582,7 @@ def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, categ
         WikiPageRank: An instance of the WikiPageRank class.
         output_file: Path to the output file for PageRank results.
         category: Optional category to filter PageRank computation, only used if we're computing PageRank.
-        method: Method to compute PageRank, either 'power_iteration' or 'matrix'.
+        method: Method to compute PageRank, either 'list' or 'matrix'.
     
     Returns:
         Dictionary of PageRank scores.
@@ -567,7 +605,7 @@ def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[st
         pr_obj: An instance of the WikiPageRank class.
         file_name: Path to the output file for PageRank results or to a file to load results from.
         category: Optional category to filter PageRank computation, only used if we're computing PageRank.
-        method: Method to compute PageRank, either 'power_iteration' or 'matrix'.
+        method: Method to compute PageRank, either 'list' or 'matrix'.
     
     Returns:
         Dictionary of PageRank scores.
@@ -576,7 +614,7 @@ def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[st
     pr_obj.pagerank_scores = scores
     if category != None:
         print(f"--- {category} ---")
-    else:
+    else: # We're doing "general PageRank"
         print(f"--- Wiki PageRank ---")
     pr_obj.analyze_pagerank_scores()
     return scores
@@ -587,7 +625,7 @@ def main():
     Example usage of the WikiPageRank class.
     """
 
-    method = "power_iteration"
+    method = "list"
 
 
     wiki_pr = WikiPageRank(damping_factor=0.85, max_iterations=100, tolerance=1e-6)
