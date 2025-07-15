@@ -3,17 +3,8 @@
 # damping and a jump vector. For reference, a BSCC is a subset of a graph from which we can never escape.
 
 
-from graphblas import Matrix, Vector, dtypes, agg, binary, monoid, semiring
+from graphblas import Matrix, Vector, dtypes, agg
 import numpy as np
-
-
-# 1→2, 2→3, 3→4, 5→4 and 4→5
-trap_matrix = np.zeros((5,5))
-trap_matrix[0, 1] = 1.0
-trap_matrix[1, 2] = 1.0
-trap_matrix[2, 3] = 1.0
-trap_matrix[4, 3] = 1.0
-trap_matrix[3, 4] = 1.0
 
 
 def random_stochastic_square_matrix(nrows : int = 5):
@@ -125,13 +116,23 @@ def report_print(method: str, R_vector: Vector, iterations: int, convergence: bo
     print(f"Convergence: {convergence} in this number of iterations: {iterations} using {method}, we achieved the following PageRank scores:\n {R_vector}\n\n")
 
 
-def test_pageranks():
-    """
-    Test the pagerank algorithms on a random generated matrix and on a trap matrix with a bottom strongly connected component
-    Report the final stationary probability and the number of iterations
-    """
 
-    # Random stochastic matrix
+# Need a visualization function or maybe do it by hand..
+
+
+def main():
+    """
+    Main function to run the tests
+    """
+    
+    # 1→2, 2→3, 3→4, 5→4 and 4→5
+    trap_matrix = np.zeros((5,5))
+    trap_matrix[0, 1] = 1.0
+    trap_matrix[1, 2] = 1.0
+    trap_matrix[2, 3] = 1.0
+    trap_matrix[4, 3] = 1.0
+    trap_matrix[3, 4] = 1.0
+
     random_matrix = random_stochastic_square_matrix(5)
 
     R, iters, converged = pagerank(random_matrix)
@@ -149,15 +150,6 @@ def test_pageranks():
     report_print("PageRank damping on a trap matrix with a BSCC", R, iters, converged)
 
 
-
-def main():
-    """
-    Main function to run the tests
-    """
-    test_pageranks()
-
-
 if __name__ == "__main__":
     main()
-
 
