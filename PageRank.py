@@ -11,6 +11,7 @@ from graphblas import Matrix, Vector, binary, agg, dtypes
 import matplotlib.pyplot as plt
 import time
 import os
+from Viz import plot_subgraph
 
 class WikiPageRank:
     """
@@ -619,14 +620,10 @@ def run_and_report(pr_obj : WikiPageRank, file_name : str, category: Optional[st
     pr_obj.analyze_pagerank_scores()
     return scores
 
-# Example usage
+
 def main():
-    """
-    Example usage of the WikiPageRank class.
-    """
-
-    method = "list"
-
+    method = "matrix"
+    visualize = True
 
     wiki_pr = WikiPageRank(damping_factor=0.85, max_iterations=100, tolerance=1e-6)
     wiki_pr.load_data(
@@ -635,27 +632,42 @@ def main():
         categories_file="data/wiki-topcats-categories.txt"
     )
 
+    # Compute general PageRank and visualize
+    run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method=method)
+    if visualize:
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=5, save_path="results/general.png")
 
-    _ = run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method = method)
+    # Compute RNA category PR and visualize
+    pagerank_scores_RNA = run_and_report(
+        wiki_pr,
+        "results/wiki_pagerank_RNA_results.csv",
+        category="Category:RNA",
+        method=method
+    )
+    if visualize:
+        wiki_pr.pagerank_scores = pagerank_scores_RNA
+        plot_subgraph(wiki_pr, category="Category:RNA", top_k=15, with_labels=True, label_count=5, save_path="results/RNA.png")
 
-    pagerank_scores_RNA = run_and_report(wiki_pr, "results/wiki_pagerank_RNA_results.csv", category="Category:RNA", method = method)
-    
-    pagerank_scores_BIO = run_and_report(wiki_pr, "results/wiki_pagerank_BIO_results.csv", category="Category:Biomolecules", method = method)
+    # Compute BIO category PR and visualize
+    pagerank_scores_BIO = run_and_report(
+        wiki_pr,
+        "results/wiki_pagerank_BIO_results.csv",
+        category="Category:Biomolecules",
+        method=method
+    )
+    if visualize:
+        wiki_pr.pagerank_scores = pagerank_scores_BIO
+        plot_subgraph(wiki_pr, category="Category:Biomolecules", top_k=15, with_labels=True, label_count=5, save_path="results/BIO.png")
 
-    # Could be interesting to study what happens when categories are very distinct (cover different nodes)
-    # Could be interesting to see if there exist some "bridge categories" that happen to connect them when we combine the PRs
-
-    weights = [0.3, 0.7] 
-
+    # Personalized PageRank combining RNA and BIO 
+    weights = [0.3, 0.7]
     personalized_scores = personalized_pagerank(
         pagerank_dicts=[pagerank_scores_RNA, pagerank_scores_BIO],
         weights=weights
     )
-
-    wiki_pr.pagerank_scores = personalized_scores
-    print("\n\n--- Personalized PageRank (RNA + BIO) ---\n\n")
-    wiki_pr.analyze_pagerank_scores()
-    wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
     
+    wiki_pr.pagerank_scores = personalized_scores
+    wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
+
 if __name__ == "__main__":
     main()
