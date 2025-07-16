@@ -52,7 +52,7 @@ def pagerank(webpages : np.ndarray, tolerance: float = 10e-6, max_iterations: in
 
         old_R = R 
         R = old_R.vxm(A)
-        d = R.reduce(agg.L1norm) - old_R.reduce(agg.L1norm) # Grab leaked probability mass
+        d = old_R.reduce(agg.L1norm) - R.reduce(agg.L1norm) # Grab leaked probability mass
         R = R + (d * E) # Add it back
         diff = (R - old_R).reduce(agg.L1norm) # Did we converge?
         if (diff < tolerance):
@@ -94,6 +94,8 @@ def pagerank_damping(webpages : np.ndarray, tolerance: float = 10e-6, max_iterat
 
         old_R = R 
         R = damping_factor * old_R.vxm(A) + (1 - damping_factor) * E
+        d = old_R.reduce(agg.L1norm) - R.reduce(agg.L1norm) # Grab leaked probability mass from the dangling nodes
+        R = R + (d * E) # Add it back
         diff = (R - old_R).reduce(agg.L1norm) # Did we converge?
         if (diff < tolerance):
             converged = True
@@ -126,29 +128,40 @@ def main():
     Main function to run the tests
     """
     
-    # 1→2, 2→3, 3→4, 5→4 and 4→5
-    trap_matrix = np.zeros((5,5))
+    # 1→2, 2→1, 2→3, 3→4, 4→3
+    trap_matrix = np.zeros((4,4))
     trap_matrix[0, 1] = 1.0
-    trap_matrix[1, 2] = 1.0
+    trap_matrix[1, 0] = 0.5
+    trap_matrix[1, 2] = 0.5
     trap_matrix[2, 3] = 1.0
-    trap_matrix[4, 3] = 1.0
-    trap_matrix[3, 4] = 1.0
+    trap_matrix[3, 2] = 1.0
 
+    # 0→2, 1→2
+    dangling_matrix = np.zeros((3,3))
+    dangling_matrix[0, 2] = 1.0
+    dangling_matrix[1, 2] = 1.0
+
+    # Fully connected random stochastic matrix
     random_matrix = random_stochastic_square_matrix(5)
 
     R, iters, converged = pagerank(random_matrix)
     report_print("PageRank no damping on random stochastic matrix", R, iters, converged)
 
-    # Test on trap matrix
     R, iters, converged = pagerank(trap_matrix)
     report_print("PageRank no damping on a trap matrix with a BSCC", R, iters, converged)
 
-    # Test on random matrix with damping
+    R, iters, converged = pagerank(dangling_matrix)
+    report_print("PageRank no damping on a dangling matrix", R, iters, converged)
+
     R, iters, converged = pagerank_damping(random_matrix)
     report_print("PageRank damping on a random stochastic matrix", R, iters, converged)
 
     R, iters, converged = pagerank_damping(trap_matrix)
     report_print("PageRank damping on a trap matrix with a BSCC", R, iters, converged)
+
+    R, iters, converged = pagerank_damping(dangling_matrix)
+    report_print("PageRank damping on a dangling matrix", R, iters, converged)
+
 
 
 if __name__ == "__main__":
