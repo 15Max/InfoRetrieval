@@ -474,7 +474,10 @@ class WikiPageRank:
         plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.show()
+        plt.show(block = False)
+        plt.pause(0.001)  # Allow the plot to render without blocking
+        plt.close('all')  # Close the plot to free memory
+        print("PageRank score distribution plotted.")
     
     def save_results(self, output_file: str):
         """

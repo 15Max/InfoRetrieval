@@ -89,4 +89,6 @@ def plot_subgraph(
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Saved plot to {save_path}")
     else:
-        plt.show()
+        plt.show(block=False)
+        plt.pause(0.001)  # Allow the plot to render without blocking
+        plt.close('all')
