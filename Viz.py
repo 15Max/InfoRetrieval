@@ -64,8 +64,8 @@ def plot_subgraph(
         arrows=True,
         edge_color='black',
         width=0.5,
-        alpha=0.7,
-        arrowsize=12,
+        alpha=0.35, # Transparency of edges
+        arrowsize=10,
         connectionstyle='arc3,rad=0.1'
     )
 
