@@ -2,6 +2,7 @@ import requests
 import os
 import gzip
 import shutil
+import logging
 
 
 URL_LIST = [
@@ -15,7 +16,6 @@ FILE_NAMES = [
     "wiki-topcats-categories.txt",
     "wiki-topcats-page-names.txt"
 ]
-
 
 def download_and_extract(urls, save_dir):
     """
@@ -34,7 +34,7 @@ def download_and_extract(urls, save_dir):
         extracted_path = os.path.join(save_dir, extracted_name)
 
         try:
-            print(f"Downloading {url}...")
+            logging.info(f"Downloading {url}...")
             response = requests.get(url, stream=True)
             response.raise_for_status()
 
@@ -42,22 +42,21 @@ def download_and_extract(urls, save_dir):
             with open(gz_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            print(f"Saved .gz to: {gz_path}")
+            logging.info(f"Saved .gz to: {gz_path}")
 
             # Extract .gz
-            print(f"Extracting {gz_path}...")
+            logging.info(f"Extracting {gz_path}...")
             with gzip.open(gz_path, 'rb') as f_in:
                 with open(extracted_path, 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
-            print(f"Extracted to: {extracted_path}")
+            logging.info(f"Extracted to: {extracted_path}")
 
             # Delete original .gz
             os.remove(gz_path)
-            print(f"Deleted original .gz: {gz_path}")
-
+            logging.info(f"Deleted original .gz: {gz_path}")
 
         except Exception as e:
-            print(f"Error handling {url}: {e}")
+            logging.error(f"Error handling {url}: {e}")
 
 def ensure_files_exist(file_list, directory):
     """
@@ -77,11 +76,8 @@ def ensure_files_exist(file_list, directory):
             missing.append(fname)
 
     if missing:
-        print(f"Missing files: {missing}")
+        logging.warning(f"Missing files: {missing}")
         return False
-        
-    
     else:
-        print(f"All files needed are present in {directory}.")
-    
+        logging.info(f"All files needed are present in {directory}.")
         return True

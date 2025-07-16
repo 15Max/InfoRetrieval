@@ -13,6 +13,9 @@ import time
 import os
 from Viz import plot_subgraph
 from utils import URL_LIST, FILE_NAMES, download_and_extract, ensure_files_exist
+import logging
+import argparse
+
 
 class WikiPageRank:
     """
@@ -74,25 +77,24 @@ class WikiPageRank:
             page_names_file: Path to wiki-topcats-page-names file (node "names")
             categories_file: Path to wiki-topcats-categories file (maps categories to nodes)
         """
-
         # Check if the files exist
-        file_found = ensure_files_exist(file_list = FILE_NAMES, directory = "data")
+        file_found = ensure_files_exist(file_list=FILE_NAMES, directory="data")
         if not file_found:
-            print("Files not found. Downloading and extracting...")
+            logging.info("Files not found. Downloading and extracting...")
             download_and_extract(URL_LIST, save_dir="data")
 
-        print("Loading graph edges...")
+        logging.info("Loading graph edges...")
         self._load_graph(graph_file)
         
-        print("Loading page names...")
+        logging.info("Loading page names...")
         self._load_page_names(page_names_file)
         
         # Used for topic specific pagerank and some analysis, but not strictly necessary
         if categories_file:
-            print("Loading categories...")
+            logging.info("Loading categories...")
             self._load_categories(categories_file)
         
-        print(f"Loaded graph with {len(self.nodes)} nodes and {self._count_edges()} edges")
+        logging.info(f"Loaded graph with {len(self.nodes)} nodes and {self._count_edges()} edges")
     
     def _load_graph(self, graph_file: str):
         """
@@ -248,7 +250,7 @@ class WikiPageRank:
             Dictionary mapping node_id to PageRank score
         """
 
-        print("Computing PageRank using power iteration and adjacency lists...")
+        logging.info("Computing PageRank using power iteration and adjacency lists...")
 
 
         start_time = time.perf_counter()
@@ -304,12 +306,15 @@ class WikiPageRank:
             
             # Swap scores for next iteration
             current_scores, next_scores = next_scores, current_scores
-    
+
+
+        logging.info(f"Total PageRank score sum: {sum(current_scores.values()):.6f} (should be close to 1.0)")
+
         self.pagerank_scores = current_scores
         
         elapsed_time = time.perf_counter() - start_time
-        print(f"PageRank computation completed in {elapsed_time:.2f} seconds")
-        print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
+        logging.info(f"PageRank computation completed in {elapsed_time:.2f} seconds")
+        logging.info(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
         
         return self.pagerank_scores
     
@@ -320,11 +325,11 @@ class WikiPageRank:
         (e.g. fast sparse matrix-vector multiplies (our case!)), making PageRank power iterations both memory and time-efficient.
         Further info at (https://graphblas.org/) and (https://pypi.org/project/python-graphblas/)
         """
-        print("Computing PageRank using matrix method leveraging GraphBLAS...")
+        logging.info("Computing PageRank using matrix method leveraging GraphBLAS...")
 
         if self.M is None:
             self._build_global_matrix()
-            print(f"Done creating the matrix of shape: {self.M.shape}")
+            logging.info(f"Done creating the matrix of shape: {self.M.shape}")
 
         start_time = time.perf_counter()
 
@@ -354,11 +359,12 @@ class WikiPageRank:
 
         elapsed = time.perf_counter() - start_time
 
-        print(f"PageRank completed in {elapsed:.2f}s")
-        print(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
+        logging.info(f"PageRank completed in {elapsed:.2f}s")
+        logging.info(f"Converged: {self.converged}, Iterations: {self.iterations_taken}")
 
-        
         self.pagerank_scores = R.to_dict()
+
+        logging.info(f"Total PageRank score sum: {sum(self.pagerank_scores.values()):.6f} (should be close to 1.0)")
 
         return self.pagerank_scores
         
@@ -437,10 +443,9 @@ class WikiPageRank:
                 for cat in categories[:3]:  # Show first 3 categories
                     print(f"    - {cat}")
                 if len(categories) > 3:
-                    print(f"    ... and {len(categories) - 3} more")
+                    print(f"    ... and {len(categories) - 3} more\n")
             else:
-                print(f"{i:2d}. {page_name} (no categories)")
-            print()
+                print(f"{i:2d}. {page_name} (no categories)\n")
     
     def plot_pagerank_distribution(self, bins: int = 50):
         """
@@ -477,7 +482,7 @@ class WikiPageRank:
         plt.show(block = False)
         plt.pause(0.001)  # Allow the plot to render without blocking
         plt.close('all')  # Close the plot to free memory
-        print("PageRank score distribution plotted.")
+        logging.info("PageRank score distribution plotted.")
     
     def save_results(self, output_file: str):
         """
@@ -509,7 +514,7 @@ class WikiPageRank:
                 page_name = page_name.replace(',', ';')
                 f.write(f"{node_id},{page_name},{score:.8f}\n")
         
-        print(f"Results saved to {output_file}")
+        logging.info(f"Results saved to {output_file}")
 
     
     def analyze_pagerank_scores(self, top_n: int = 20):
@@ -599,11 +604,11 @@ def execute_or_load_pagerank(WikiPageRank: WikiPageRank, output_file: str, categ
         Dictionary of PageRank scores.
     """
     if os.path.exists(output_file):
-        print(f"Loading existing PageRank results from {output_file}...")
+        logging.info(f"Loading existing PageRank results from {output_file}...")
         return load_pagerank_scores(output_file)
     else:
-        print("Computing PageRank scores...")
-        pagerank_scores = WikiPageRank.compute_pagerank(method = method, category = category)
+        logging.info("Computing PageRank scores...")
+        pagerank_scores = WikiPageRank.compute_pagerank(method=method, category=category)
         WikiPageRank.save_results(output_file)
         return pagerank_scores
 
@@ -682,4 +687,14 @@ def main():
         plot_subgraph(wiki_pr, top_k=30, with_labels=True, label_count=10, save_path="results/personalized.png", title="Top Personalized RNA + BIO Nodes by PageRank Score")
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Run Wiki PageRank analysis.")
+    parser.add_argument('--loglevel', default='INFO', help='Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
+
+    args = parser.parse_args()
+    
+    # Set the logging level based on the command-line argument
+    logging.basicConfig(level=getattr(logging, args.loglevel.upper(), logging.INFO))
+    logging.getLogger().handlers[0].setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
     main()
