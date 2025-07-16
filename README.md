@@ -4,7 +4,12 @@ This repository contains the implementation of the PageRank algorithm on the wik
 ### Requirements
 All requirements are listed in the `requirements.txt` file. Or if you prefer, you can create a conda environment using the provided `conda.yml` file.
 
+### Dataset
+The [Wikipedia top categories dataset](https://snap.stanford.edu/data/wiki-topcats.html) is a web graph of Wikipedia hyperlinks, collected in September 2011 by the Stanford Network Analysis Project (SNAP). The network was constructed by first taking the largest strongly connected component of Wikipedia, then restricting to pages in the top set of categories (those with at least 100 pages), and finally taking the largest strongly connected component of the restricted graph.
+In addition to the graph, also the **page names** and **categories** of the articles are provided.
 
+The three files can be directly downloaded using the `utils.py` script, which will download them in the `data/` folder.
+Make sure all files are present, before running the other scripts: `wiki-topcats.txt`, `wiki-topcats-page-names.txt`, and `wiki-topcats-categories.txt`.
 ### PageRank
 We implemented the Pagerank algorithm, leveraging two different data structures: an adjacency list and an adjacency matrix. 
 You can choose which of these two methods to use by setting the `method` variable in the `PageRank.py` file to either `list` or `matrix`.
@@ -25,4 +30,15 @@ Then, run the command `fastapi run gugol_main.py`. The default port should be 80
 For more instructions on changing the port if necessary, refer to the FastAPI documentation available online.
 *Note*: The "gugol" interface is intended for the project presentation only. We do not expect others to run it, so we will not provide further documentation on how to use this interface.
 
+### Authors
+- [Nicola Cortinovis](https://github.com/nicolacortinovis)
+- [Marta Lucas](https://github.com/15Max)
+- [Luca Pernice](https://github.com/lucapernice)
 
+Checkout our [presentation](# TODO: add link) for an overview of the project.
+
+### References 
+- [Page, L., Brin, S., Motwani, R. and Winograd, T., The PageRank 
+Citation Ranking: Bringing Order to the Web, Stanford InfoLab, 1999](materials/Pagerank.pdf)
+- [Brin, S. and Page, L., The anatomy of a large-scale hypertextual Web search engine, Computer networks and ISDN systems, 30(1-7), pp.107-117, 1998
+](materials/Brin98Anatomy.pdf)
