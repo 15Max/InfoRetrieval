@@ -645,7 +645,7 @@ def main():
     # Compute general PageRank and visualize
     run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method=method)
     if visualize:
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=5, save_path="results/general.png")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/general.png")
 
     # Compute RNA category PR and visualize
     pagerank_scores_RNA = run_and_report(
