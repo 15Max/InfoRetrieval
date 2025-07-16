@@ -107,7 +107,7 @@ class WikiPageRank:
                 line = line.strip()
                 if line:
                     parts = line.split()
-                    if len(parts) >= 2:
+                    if len(parts) >= 2 and parts[0] != parts[1]:  # Ignore self-loops
                         source = int(parts[0])
                         target = int(parts[1])
                         self.graph[source].append(target)
@@ -186,7 +186,7 @@ class WikiPageRank:
                     vals.append(w)
                 continue
 
-            # If instead it is not dangling, uniform distr over the reached nodes
+            # Note: handling of the selfloops is done beforehand so nothing is done here
             w = 1.0 / outdeg
             for v in self.graph[u]:
                 rows.append(u)
