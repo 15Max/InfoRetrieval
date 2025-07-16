@@ -3,3 +3,8 @@ pandas
 matplotlib
 python-graphblas
 networkx
+torch 
+transformers
+sentence-transformers
+accelerate
+fastapi[standard]
