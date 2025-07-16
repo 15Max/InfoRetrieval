@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import time
 import os
 from Viz import plot_subgraph
+from utils import URL_LIST, FILE_NAMES, download_and_extract, ensure_files_exist
 
 class WikiPageRank:
     """
@@ -73,6 +74,12 @@ class WikiPageRank:
             page_names_file: Path to wiki-topcats-page-names file (node "names")
             categories_file: Path to wiki-topcats-categories file (maps categories to nodes)
         """
+
+        # Check if the files exist
+        file_found = ensure_files_exist(file_list = FILE_NAMES, directory = "data")
+        if not file_found:
+            print("Files not found. Downloading and extracting...")
+            download_and_extract(URL_LIST, save_dir="data")
 
         print("Loading graph edges...")
         self._load_graph(graph_file)
