@@ -8,7 +8,8 @@ def plot_subgraph(
     with_labels: bool = False,
     label_count: int = 5,
     save_path: str = None, 
-    title: str = None
+    title: str = None, 
+    node_sparsity: float = 1.5
 ):
     """
     Plot a subgraph of the PageRank results.
@@ -47,7 +48,7 @@ def plot_subgraph(
 
     # Prepare visualization data 
     pr_scores = [pr_obj.pagerank_scores.get(n, 0.0) for n in G.nodes()]
-    pos = nx.spring_layout(G, seed=123, k=1.5) # k controls the distance between nodes
+    pos = nx.spring_layout(G, seed=123, k=node_sparsity) # k controls the distance between nodes
 
     plt.figure(figsize=(12, 8))
     nodes = nx.draw_networkx_nodes(
