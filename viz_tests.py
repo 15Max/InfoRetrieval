@@ -1,5 +1,8 @@
 from Viz import plot_subgraph
 import PageRank
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def main():
@@ -23,7 +26,7 @@ def main():
     PageRank.run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method=method)
 
     plot_subgraph(wiki_pr, top_k=100, with_labels=False, label_count=5, save_path="results/general_large.png", title="Pagerank ", node_sparsity=1.5)
-    plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/general_small.png", title="Top 20 nodes by PageRank Score")
+    plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/general_small.png", title="Top 20 nodes by PageRank Score")
 
     if biology:
         # Compute RNA category PR and visualize
@@ -35,7 +38,7 @@ def main():
         )
         
         wiki_pr.pagerank_scores = pagerank_scores_RNA
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/RNA_20.png", title="Top 20 RNA Nodes by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/RNA_20.png", title="Top 20 RNA Nodes by PageRank Score")
 
         # Compute BIO category PR and visualize
         pagerank_scores_BIO = PageRank.run_and_report(
@@ -46,7 +49,7 @@ def main():
         )
     
         wiki_pr.pagerank_scores = pagerank_scores_BIO
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/BIO_20.png", title="Top 20BIO Nodes by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/BIO_20.png", title="Top 20BIO Nodes by PageRank Score")
 
         # Personalized PageRank combining RNA and BIO 
         weights = [0.3, 0.7]
@@ -58,7 +61,7 @@ def main():
         wiki_pr.pagerank_scores = personalized_scores
         wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
  
-        plot_subgraph(wiki_pr, top_k=30, with_labels=True, label_count=10, save_path="results/personalized.png", title="Top 30 RNA + BIO Nodes by Personalized PageRank Score")
+        plot_subgraph(wiki_pr, top_k=30, with_labels=True, label_count=20, save_path="results/personalized.png", title="Top 30 RNA + BIO Nodes by Personalized PageRank Score")
     if ancient_greece:
        
     # Compute Ancient Greek category PR and visualize
@@ -70,7 +73,7 @@ def main():
         )
 
         wiki_pr.pagerank_scores = pagerank_scores_Greek_Gods
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Greek_Gods.png", title="Top 20 nodes in Greek Gods by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Greek_Gods.png", title="Top 20 nodes in Greek Gods by PageRank Score")
 
     # Compute Ancient Greek legendary creatures category PR and visualize
         pagerank_scores_Greek_Legendary_Creatures = PageRank.run_and_report(
@@ -81,7 +84,7 @@ def main():
         )
 
         wiki_pr.pagerank_scores = pagerank_scores_Greek_Legendary_Creatures
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Greek_Legendary_Creatures.png", title="Top 20 nodes in Greek Legendary Creatures by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Greek_Legendary_Creatures.png", title="Top 20 nodes in Greek Legendary Creatures by PageRank Score")
 
 
     # Personalized Pagerank for the greek gods and legendary creatures
@@ -94,7 +97,7 @@ def main():
 
         wiki_pr.pagerank_scores = personalized_scores
         wiki_pr.save_results("results/wiki_pagerank_personalized_results.csv")
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/personalized_Greek.png", title="Top 20 Personalized Greek Nodes by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/personalized_Greek.png", title="Top 20 Personalized Greek Nodes by PageRank Score", node_sparsity=2.0)
 
     if fantasy:
         # Compute Fantasy category PR and visualize
@@ -106,7 +109,7 @@ def main():
         )
 
         wiki_pr.pagerank_scores = pagerank_scores_Fantasy
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Fantasy.png", title="Top 20 nodes in Fantasy books by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Fantasy.png", title="Top 20 nodes in Fantasy books by PageRank Score")
 
         pagerank_scores_Fantasy_Authors = PageRank.run_and_report(
             wiki_pr, 
@@ -115,7 +118,7 @@ def main():
             method=method
         )
         wiki_pr.pagerank_scores = pagerank_scores_Fantasy_Authors
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Fantasy_Authors.png", title="Top 20 nodes in English Fantasy Authors by PageRank Score")
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Fantasy_Authors.png", title="Top 20 nodes in English Fantasy Authors by PageRank Score")
 
         # Personalized Pagerank for the fantasy books and authors
         weights = [0.5, 0.5]
@@ -126,7 +129,7 @@ def main():
         wiki_pr.pagerank_scores = personalized_scores
         wiki_pr.save_results("results/wiki_pagerank_personalized_fantasy_results.csv")
 
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/personalized_Fantasy.png", title="Top 20 Personalized Fantasy books and Authors Nodes by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/personalized_Fantasy.png", title="Top 20 Personalized Fantasy books and Authors Nodes by PageRank Score", node_sparsity=2.0)
 
     if artificial_intelligence:
         # Compute Artificial Intelligence category PR and visualize
@@ -138,7 +141,7 @@ def main():
         )
 
         wiki_pr.pagerank_scores = pagerank_scores_AI
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/AI.png", title="Top 20 nodes in Artificial Intelligence by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/AI.png", title="Top 20 nodes in Artificial Intelligence by PageRank Score", node_sparsity=2.0)
 
         pagerank_scores_AI_researchers = PageRank.run_and_report(
             wiki_pr, 
@@ -147,7 +150,7 @@ def main():
             method=method
         )
         wiki_pr.pagerank_scores = pagerank_scores_AI_researchers
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Researchers.png", title="Top 20 nodes in Researchers by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Researchers.png", title="Top 20 nodes in Researchers by PageRank Score", node_sparsity=2.0)
 
         # Compute Robotics category PR and visualize
         pagerank_scores_Robotics = PageRank.run_and_report(
@@ -157,7 +160,7 @@ def main():
             method=method
         )   
         wiki_pr.pagerank_scores = pagerank_scores_Robotics
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=8, save_path="results/Robotics.png", title="Top 20 nodes in Robotics by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/Robotics.png", title="Top 20 nodes in Robotics by PageRank Score", node_sparsity=2.0)
 
         # Personalized Pagerank for the AI and Researchers
         weights = [0.5, 0.5]
@@ -168,7 +171,7 @@ def main():
 
         wiki_pr.pagerank_scores = personalized_scores
         wiki_pr.save_results("results/wiki_pagerank_personalized_AI_results.csv")
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/personalized_AI.png", title="Top 20 Personalized AI + Researchers Nodes by PageRank Score", node_sparsity=2.0)
+        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/personalized_AI.png", title="Top 20 Personalized AI + Researchers Nodes by PageRank Score", node_sparsity=2.0)
 
         if fantasy:
             # Putting two completely different categories together
@@ -179,7 +182,7 @@ def main():
             )
             wiki_pr.pagerank_scores = personalized_scores
             wiki_pr.save_results("results/wiki_pagerank_personalized_Fantasy_AI_results.csv")
-            plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/personalized_Fantasy_AI.png", title="Top 20 Personalized Fantasy + AI Nodes by PageRank Score", node_sparsity=2.0)
+            plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/personalized_Fantasy_AI.png", title="Top 20 Personalized Fantasy + AI Nodes by PageRank Score", node_sparsity=2.0)
 
 
 
