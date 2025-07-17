@@ -22,8 +22,16 @@ You can choose which visualization to display by modifying `main` in the  `Viz.p
 
 To avoid too much clutter we plotted only a small subset of the nodes, and also analyzed results for topic specific and personalized PageRank on different categories.
 
+The following visualization represents the top 20 nodes according to the PageRank score, colored by the respective score. 
+
+![PageRank Visualization](general_small.png)
 ### Gugol Interface
-We also implemented a simple interface to query .... #todo: continue
+We also implemented a simple interface to perform queries on our WebGraph. 
+This interface is called "gugol" and is built using [FastAPI](https://fastapi.tiangolo.com/). It allows users to perform queries on the web graph and retrieve results based on PageRank scores.
+
+
+![Gugol Interface](Interface.png)
+
 
 To run the "gugol" interface, first run `PageRank.py` and the notebook `embedder.py`; otherwise, the necessary files will not be generated.
 Then, run the command `fastapi run gugol_main.py`. The default port should be 8000.
