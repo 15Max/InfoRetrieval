@@ -18,7 +18,7 @@ The main difference is that for the `matrix` method we leveraged the Python  [Gr
 ### Visualizations
 We also added some visualizations of the web graph, colored by the corresponding PageRank score.
 
-You can choose which visualization to display by modifying the `viz_tests.py` file, and choosing a category of interest by browsing the ones [available.](data/wiki-topcats-categories.txt)
+You can choose which visualization to display by modifying `main` in the  `Viz.py` file, and choosing a category of interest by browsing the ones [available.](data/wiki-topcats-categories.txt)
 
 To avoid too much clutter we plotted only a small subset of the nodes, and also analyzed results for topic specific and personalized PageRank on different categories.
 
