@@ -1,6 +1,11 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import networkx as nx
+import PageRank
+import re
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def plot_subgraph(
     pr_obj,
@@ -92,3 +97,140 @@ def plot_subgraph(
         plt.show(block=False)
         plt.pause(0.001)  # Allow the plot to render without blocking
         plt.close('all')
+
+
+def safe_filename(name: str) -> str:
+    # Replace anything that is not alphanumeric, dash, or underscore
+    return re.sub(r'[^A-Za-z0-9_-]+', '_', name)
+
+
+def plot_combinations(
+    wiki_pr,
+    categories,
+    method="matrix",
+    weights=None,
+    top_k=20,
+    with_labels=True,
+    label_count=20,
+    node_sparsity=1.5
+):
+    if weights is None:
+        weights = [0.5, 0.5]
+
+    if len(weights) != len(categories):
+        raise ValueError(
+            f"Length of weights ({len(weights)}) must match number of categories ({len(categories)})"
+        )
+
+    pagerank_dicts = []
+
+    for category in categories:
+        safe_cat = safe_filename(category)
+        csv_path = f"results/{safe_cat}.csv"
+        img_path = f"results/{safe_cat}.png"
+        title = f"Top {top_k} nodes in {category} by PageRank Score"
+
+        pr_scores = PageRank.run_and_report(
+            wiki_pr,
+            csv_path,
+            category=category,
+            method=method
+        )
+        pagerank_dicts.append(pr_scores)
+
+        wiki_pr.pagerank_scores = pr_scores
+        plot_subgraph(
+            wiki_pr,
+            top_k=top_k,
+            with_labels=with_labels,
+            label_count=label_count,
+            save_path=img_path,
+            title=title,
+            node_sparsity=node_sparsity
+        )
+
+    combined_scores = PageRank.personalized_pagerank(
+        pagerank_dicts=pagerank_dicts,
+        weights=weights
+    )
+
+    wiki_pr.pagerank_scores = combined_scores
+    combined_name = "personalized_" + "_".join(safe_filename(cat) for cat in categories)
+    combined_csv = f"results/{combined_name}.csv"
+    combined_img = f"results/{combined_name}.png"
+
+    wiki_pr.save_results(combined_csv)
+    combined_title = f"Top {top_k} nodes combined ({', '.join(categories)}) by Personalized PageRank Score"
+
+    plot_subgraph(
+        wiki_pr,
+        top_k=top_k,
+        with_labels=with_labels,
+        label_count=label_count,
+        save_path=combined_img,
+        title=combined_title,
+        node_sparsity=node_sparsity
+    )
+
+
+def main():
+
+    # Initialize WikiPageRank object
+    wiki_pr = PageRank.WikiPageRank(
+        damping_factor=0.85,
+        max_iterations=100,
+        tolerance=1e-6
+    )
+    
+    # Load the dataset
+    wiki_pr.load_data(
+        "data/wiki-topcats.txt",
+        "data/wiki-topcats-page-names.txt",
+        "data/wiki-topcats-categories.txt"
+    )
+    # Compute general PageRank and visualize
+    PageRank.run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method="matrix")
+    plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=20, save_path="results/general_small.png")
+    plot_subgraph(wiki_pr, top_k=100, with_labels=False, label_count=20, save_path="results/general_large.png", node_sparsity=1.5)
+
+    # RNA and Biomolecules categories
+    plot_combinations(
+    wiki_pr=wiki_pr,
+    categories=["Category:RNA", "Category:Biomolecules"],
+    method="matrix",
+    weights=[0.3, 0.7],
+    top_k=20,
+    with_labels=True,
+    label_count=20,
+    node_sparsity=1.5
+    )
+
+    # Ancient Greek Gods and Ancient Greek Legendary creatures
+    plot_combinations(
+        wiki_pr=wiki_pr,
+        categories=["Category:Greek_gods", "Category:Greek_legendary_creatures"],
+        method="matrix",
+        weights=[0.5, 0.5],
+        top_k=20,
+        with_labels=True,
+        label_count=20,
+        node_sparsity=1.5
+    )
+
+    # Artificial Intelligence and Multiplayer Video Games
+    plot_combinations(
+        wiki_pr=wiki_pr,
+        categories=["Category:Artificial_intelligence", "Category:Multiplayer_video_games"],
+        method="matrix",
+        weights=[0.6, 0.4],
+        top_k=20,
+        with_labels=True,
+        label_count=20,
+        node_sparsity=1.5
+    )
+
+
+
+
+if __name__ == "__main__":
+    main()

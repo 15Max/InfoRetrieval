@@ -11,7 +11,6 @@ from graphblas import Matrix, Vector, binary, agg, dtypes
 import matplotlib.pyplot as plt
 import time
 import os
-from Viz import plot_subgraph
 from utils import URL_LIST, FILE_NAMES, download_and_extract, ensure_files_exist
 import logging
 import argparse
@@ -649,9 +648,7 @@ def main():
 
     # Compute general PageRank and visualize
     run_and_report(wiki_pr, "results/wiki_pagerank_results.csv", method=method)
-    if visualize:
-        plot_subgraph(wiki_pr, top_k=20, with_labels=True, label_count=10, save_path="results/general.png")
-
+    
     # Compute RNA category PR and visualize
     pagerank_scores_RNA = run_and_report(
         wiki_pr,
@@ -659,10 +656,7 @@ def main():
         category="Category:RNA",
         method=method
     )
-    if visualize:
-        wiki_pr.pagerank_scores = pagerank_scores_RNA
-        plot_subgraph(wiki_pr, top_k=15, with_labels=True, label_count=5, save_path="results/RNA.png", title="Top RNA Nodes by PageRank Score")
-
+    
     # Compute BIO category PR and visualize
     pagerank_scores_BIO = run_and_report(
         wiki_pr,
@@ -670,9 +664,7 @@ def main():
         category="Category:Biomolecules",
         method=method
     )
-    if visualize:
-        wiki_pr.pagerank_scores = pagerank_scores_BIO
-        plot_subgraph(wiki_pr, top_k=15, with_labels=True, label_count=5, save_path="results/BIO.png", title="Top BIO Nodes by PageRank Score")
+    
 
     # Personalized PageRank combining RNA and BIO 
     weights = [0.3, 0.7]
@@ -683,8 +675,6 @@ def main():
     
     wiki_pr.pagerank_scores = personalized_scores
     wiki_pr.save_results("results/wiki_pagerank_personalized(RNA+BIO)_results.csv")
-    if visualize:
-        plot_subgraph(wiki_pr, top_k=30, with_labels=True, label_count=10, save_path="results/personalized.png", title="Top Personalized RNA + BIO Nodes by PageRank Score")
 
 if __name__ == "__main__":
 
