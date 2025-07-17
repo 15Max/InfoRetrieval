@@ -43,7 +43,6 @@ For more instructions on changing the port if necessary, refer to the FastAPI do
 - [Marta Lucas](https://github.com/15Max)
 - [Luca Pernice](https://github.com/lucapernice)
 
-Checkout our [presentation](# TODO: add link) for an overview of the project.
 
 ### References 
 - [Page, L., Brin, S., Motwani, R. and Winograd, T., The PageRank 
