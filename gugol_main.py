@@ -31,7 +31,7 @@ print("Embeddings loaded successfully.")
 pagerank_scores = torch.tensor(np.load("data/pagerank_scores.npy"))
 pagerank_scores = pagerank_scores.to(device)
 print("Pagerank scores loaded successfully.")
-df = pd.read_csv("results/wiki_pagerank_RNA_results.csv")
+df = pd.read_csv("results/wiki_pagerank_results.csv")
 df.sort_values(by="node_id", inplace=True)
 page_names = df["page_name"].tolist()
 print("Page names loaded successfully.")
@@ -102,15 +102,16 @@ async def calculate_similarity(text: str, top_k: int = 10, similarity_threshold:
     similarities = model.similarity(text_embedding, embeddings)
     print("Similarities calculated.")
     final_scores = pagerank_weight * pagerank_scores + (1 - pagerank_weight) * similarities[0]
-    sorted_indices = final_scores.argsort(descending=True)
+    threshold_mask = similarities[0] > similarity_threshold
+    final_scores_with_threshold = final_scores[threshold_mask]
+    sorted_final_indices_with_threshold = final_scores_with_threshold.argsort(descending=True)
     results = []
     rank = 1
-    for i in sorted_indices[:top_k]:
-        title = page_names[i]
-        score = final_scores[i].item()
-        if score < similarity_threshold:
-            continue
-        categories = node_categories.get(i.item(), [])
+    for i in sorted_final_indices_with_threshold[:top_k]:
+        idx = threshold_mask.nonzero(as_tuple=True)[0][i].item()
+        title = page_names[idx]
+        score = final_scores_with_threshold[i].item()
+        categories = node_categories.get(idx, [])
         results.append(SimilarityReturn(title=title, categories=categories, rank=rank, score=score))
         rank += 1
     print(f"Returning {len(results)} results.")           
