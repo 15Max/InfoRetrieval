@@ -43,7 +43,7 @@ For more instructions on changing the port if necessary, refer to the FastAPI do
 - [Marta Lucas](https://github.com/15Max)
 - [Luca Pernice](https://github.com/lucapernice)
 
-
+For an overview of our project, you can checkout our [presentation slides](materials/PageRankPresentation.pdf).
 ### References 
 - [Page, L., Brin, S., Motwani, R. and Winograd, T., The PageRank 
 Citation Ranking: Bringing Order to the Web, Stanford InfoLab, 1999](materials/Pagerank.pdf)
